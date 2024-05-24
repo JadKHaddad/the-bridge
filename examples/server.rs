@@ -47,6 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             loop {
                 tokio::select! {
                     _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
+                        // We didn't receive a message in 5 seconds, send a ping!, are you ok?
                         let ping_message = DemoMessage::Ping(ping_count);
                         ping_count += 1;
 
