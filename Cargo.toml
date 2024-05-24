@@ -1,0 +1,41 @@
+[package]
+name = "bincode-bridge"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["tracing", "tokio", "embedded-io", "futures"]
+embedded-io = ["dep:embedded-io-async"]
+futures = ["dep:futures"]
+tokio = ["dep:tokio", "dep:tokio-util", "futures", "bincode/std"]
+tracing = ["dep:tracing"]
+
+[dependencies]
+bincode = { git = "https://github.com/bincode-org/bincode.git", tag = "v2.0.0-rc.3", default-features = false, features = [
+    "derive",
+] }
+futures-core = "0.3.30"
+futures = { version = "0.3.3", default-features = false, optional = true, features = [
+    "std",
+] }
+embedded-io-async = { version = "0.6.1", optional = true }
+tokio = { version = "1.37.0", optional = true, default-features = false, features = [
+    "io-util",
+] }
+tokio-util = { version = "0.7.11", optional = true, default-features = false, features = [
+    "codec",
+] }
+tracing = { version = "0.1.40", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7.11", features = ["codec"] }
+tokio-test = "0.4.4"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+futures = "0.3.3"
+
+[[example]]
+name = "server"
+path = "examples/server.rs"
+required-features = ["tracing", "tokio"]
