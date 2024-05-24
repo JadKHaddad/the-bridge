@@ -1,12 +1,7 @@
-use futures::StreamExt;
-
-use crate::tokio::Codec;
-
 extern crate std;
 
 fn init_tracing() {
-    use tracing_subscriber::fmt::format::FmtSpan;
-    use tracing_subscriber::EnvFilter;
+    use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -104,9 +99,10 @@ async fn raw_write_batch(mut write: impl tokio::io::AsyncWrite + Unpin) {
         .await
         .expect("Failed to write to stream");
 
-    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 }
 
+// TODO: add tests with this fn
 async fn write_with_crate_loop(write: impl tokio::io::AsyncWrite + Unpin) {
     use crate::{encode::framed_write::FramedWrite, tokio::Compat, Message};
 
@@ -145,6 +141,20 @@ async fn send_slow_bytes_to_crate_stream() {
 
 #[tokio::test]
 #[ignore]
+// cargo test --package bincode-bridge --lib -- tests::send_batch_to_crate_stream --exact --show-output --ignored --nocapture
+async fn send_batch_to_crate_stream() {
+    init_tracing();
+
+    let (read, write) = tokio::io::duplex(1024);
+
+    let read_task = tokio::spawn(read_with_crate_stream(read));
+    let write_task = tokio::spawn(raw_write_batch(write));
+
+    tokio::try_join!(read_task, write_task).expect("Failed to join tasks");
+}
+
+#[tokio::test]
+#[ignore]
 // cargo test --package bincode-bridge --lib -- tests::send_slow_bytes_to_crate_loop --exact --show-output --ignored --nocapture
 async fn send_slow_bytes_to_crate_loop() {
     init_tracing();
@@ -153,6 +163,20 @@ async fn send_slow_bytes_to_crate_loop() {
 
     let read_task = tokio::spawn(read_with_crate_loop(read));
     let write_task = tokio::spawn(raw_write_slow_bytes(write));
+
+    tokio::try_join!(read_task, write_task).expect("Failed to join tasks");
+}
+
+#[tokio::test]
+#[ignore]
+// cargo test --package bincode-bridge --lib -- tests::send_batch_to_create_loop --exact --show-output --ignored --nocapture
+async fn send_batch_to_create_loop() {
+    init_tracing();
+
+    let (read, write) = tokio::io::duplex(1024);
+
+    let read_task = tokio::spawn(read_with_crate_loop(read));
+    let write_task = tokio::spawn(raw_write_batch(write));
 
     tokio::try_join!(read_task, write_task).expect("Failed to join tasks");
 }
@@ -172,11 +196,25 @@ async fn send_slow_bytes_to_tokio_codec() {
 }
 
 #[tokio::test]
+#[ignore]
+// cargo test --package bincode-bridge --lib -- tests::send_batch_to_tokio_codec --exact --show-output --ignored --nocapture
+async fn send_batch_to_tokio_codec() {
+    init_tracing();
+
+    let (read, write) = tokio::io::duplex(1024);
+
+    let read_task = tokio::spawn(read_with_tokio_codec(read));
+    let write_task = tokio::spawn(raw_write_batch(write));
+
+    tokio::try_join!(read_task, write_task).expect("Failed to join tasks");
+}
+
+#[tokio::test]
 async fn crate_sink_crate_stream() {
     use crate::{
         decode::framed_read::FramedRead, encode::framed_write::FramedWrite, tokio::Compat, Message,
     };
-    use futures::SinkExt;
+    use futures::{SinkExt, StreamExt};
     use std::vec;
 
     init_tracing();
@@ -223,11 +261,10 @@ async fn crate_sink_crate_stream() {
 
 #[tokio::test]
 async fn tokio_sink_tokio_stream() {
-    use crate::Message;
-    use futures::SinkExt;
+    use crate::{tokio::Codec, Message};
+    use futures::{SinkExt, StreamExt};
     use std::vec;
-    use tokio_util::codec::FramedRead;
-    use tokio_util::codec::FramedWrite;
+    use tokio_util::codec::{FramedRead, FramedWrite};
 
     init_tracing();
 
@@ -313,3 +350,5 @@ async fn do_stuff() {
         .for_each(|r| async move { std::println!("{r:?}") })
         .await;
 }
+
+// TODO: add tests to buffer size errors
