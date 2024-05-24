@@ -3,13 +3,13 @@ extern crate std;
 fn init_tracing() {
     use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
-    tracing_subscriber::fmt()
+    let _ = tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::from_default_env()
                 .add_directive("trace".parse().expect("Invalid filter directive")),
         )
         .with_span_events(FmtSpan::FULL)
-        .init();
+        .try_init();
 }
 
 async fn read_with_crate_stream(read: impl tokio::io::AsyncRead + Unpin) {
