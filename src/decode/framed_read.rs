@@ -157,8 +157,7 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
 
     pub fn stream(
         &'a mut self,
-    ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a FramedRead<'a, R, M>>
-    {
+    ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a Self> {
         futures::stream::unfold(self, |this| async {
             if this.has_errored {
                 return None;
@@ -177,8 +176,7 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
 
     pub fn into_stream(
         self,
-    ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a FramedRead<'a, R, M>>
-    {
+    ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a Self> {
         futures::stream::unfold(self, |mut this| async {
             if this.has_errored {
                 return None;

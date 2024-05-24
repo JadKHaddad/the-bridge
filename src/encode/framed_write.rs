@@ -74,9 +74,7 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
         Ok(())
     }
 
-    pub fn sink(
-        &'a mut self,
-    ) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a FramedWrite<'a, W, M>> {
+    pub fn sink(&'a mut self) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a Self> {
         futures::sink::unfold(self, |this, item: M| async move {
             this.write_frame(&item).await?;
 
@@ -84,9 +82,7 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
         })
     }
 
-    pub fn into_sink(
-        self,
-    ) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a FramedWrite<'a, W, M>> {
+    pub fn into_sink(self) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a Self> {
         futures::sink::unfold(self, |mut this, item: M| async move {
             this.write_frame(&item).await?;
 

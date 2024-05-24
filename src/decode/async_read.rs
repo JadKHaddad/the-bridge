@@ -6,5 +6,5 @@ pub trait AsyncRead {
     fn read<'a>(
         &'a mut self,
         buf: &'a mut [u8],
-    ) -> impl Future<Output = Result<usize, Self::Error>> + 'a;
+    ) -> impl Future<Output = Result<usize, Self::Error>>;
 }
