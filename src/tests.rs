@@ -259,6 +259,16 @@ async fn write_with_crate_loop(write: impl tokio::io::AsyncWrite + Unpin) {
     }
 }
 
+// TODO
+async fn write_with_crate_sink(write: impl tokio::io::AsyncWrite + Unpin) {
+    unimplemented!()
+}
+
+// TODO
+async fn write_with_tokio_codec(write: impl tokio::io::AsyncWrite + Unpin) {
+    unimplemented!()
+}
+
 #[tokio::test]
 async fn send_slow_bytes_to_crate_stream() {
     init_tracing();
