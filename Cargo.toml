@@ -39,3 +39,5 @@ futures = "0.3.3"
 name = "server"
 path = "examples/server.rs"
 required-features = ["tracing", "tokio"]
+
+# TODO: add log and defmt features
