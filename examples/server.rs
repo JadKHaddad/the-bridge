@@ -1,6 +1,31 @@
 use bincode_bridge::{
-    decode::framed_read::FramedRead, encode::framed_write::FramedWrite, tokio::Compat, Message,
+    decode::framed_read::FramedRead, encode::framed_write::FramedWrite, tokio::Compat,
 };
+
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode, PartialEq)]
+enum Message {
+    A(i32),
+    B(u32),
+    C(
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+    ),
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

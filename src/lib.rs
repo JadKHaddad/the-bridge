@@ -4,34 +4,6 @@ pub trait Captures<U> {}
 
 impl<T: ?Sized, U> Captures<U> for T {}
 
-use bincode::{Decode, Encode};
-use core::fmt::Debug;
-
-#[derive(Debug, Clone, Encode, Decode, PartialEq)]
-pub enum Message {
-    A(i32),
-    B(u32),
-    C(
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-    ),
-}
-
 pub mod decode;
 pub mod encode;
 
