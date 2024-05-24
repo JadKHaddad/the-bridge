@@ -139,13 +139,13 @@ impl<IoError> From<IoError> for EncodeError<IoError> {
     }
 }
 
-impl<M> Encoder<&M> for Codec<M>
+impl<M> Encoder<M> for Codec<M>
 where
     M: bincode::Encode,
 {
     type Error = EncodeError<IoError>;
 
-    fn encode(&mut self, item: &M, dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, item: M, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let message = bincode::encode_to_vec(item, bincode::config::standard())
             .map_err(EncodeError::Encode)?;
 

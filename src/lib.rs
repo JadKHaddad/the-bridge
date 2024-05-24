@@ -3,7 +3,7 @@
 use bincode::{Decode, Encode};
 use core::fmt::Debug;
 
-#[derive(Debug, Encode, Decode, PartialEq)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq)]
 pub enum Message {
     A(i32),
     B(u32),

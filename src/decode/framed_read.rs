@@ -74,10 +74,10 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
                     tracing::trace!(%packet_size, cursor=%self.cursor, ?buffered, "Packet size available");
                 }
 
-                if self.cursor < packet_size + 4 {
+                if self.cursor < packet_size {
                     #[cfg(feature = "tracing")]
                     {
-                        let remaining = packet_size + 4 - self.cursor;
+                        let remaining = packet_size - self.cursor;
                         tracing::trace!(%remaining, "Not enough bytes to decode the packet. Reading more bytes");
                     }
 
@@ -104,21 +104,21 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
                     tracing::trace!(%packet_size, "Checking if enough bytes are available");
                 }
 
-                if self.cursor < packet_size + 4 {
+                if self.cursor < packet_size {
                     #[cfg(feature = "tracing")]
                     {
-                        let remaining = packet_size + 4 - self.cursor;
+                        let remaining = packet_size - self.cursor;
                         tracing::trace!(%remaining, "Not enough bytes to decode the packet. Breaking");
                     }
 
                     continue;
                 }
 
-                let message_buf = &self.buf[4..packet_size + 4];
+                let message_buf = &self.buf[4..packet_size];
 
                 #[cfg(feature = "tracing")]
                 {
-                    let packet_buf = &self.buf[..packet_size + 4];
+                    let packet_buf = &self.buf[..packet_size];
                     tracing::trace!(?packet_buf, ?message_buf, "Decoding message");
                 }
 
@@ -127,8 +127,8 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
                 let message = bincode::decode_from_slice(message_buf, bincode::config::standard())
                     .map_err(DecodeError::Decode)?;
 
-                self.cursor -= packet_size + 4;
-                self.buf.copy_within(packet_size + 4.., 0);
+                self.cursor -= packet_size;
+                self.buf.copy_within(packet_size.., 0);
 
                 #[cfg(feature = "tracing")]
                 {
@@ -143,6 +143,29 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
 
     pub fn stream(&'a mut self) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + 'a {
         futures::stream::unfold(self, |this| async {
+            if this.has_errored {
+                return None;
+            }
+
+            match this.read_frame().await {
+                Ok(deocded) => Some((Ok(deocded), this)),
+                Err(err) => {
+                    this.has_errored = true;
+
+                    Some((Err(err), this))
+                }
+            }
+        })
+    }
+
+    pub fn into_stream<'b, 'c>(self) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + 'c
+    where
+        'a: 'b + 'c,
+        'b: 'c,
+        M: 'b,
+        R: 'c,
+    {
+        futures::stream::unfold(self, |mut this| async {
             if this.has_errored {
                 return None;
             }

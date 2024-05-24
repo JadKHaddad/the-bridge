@@ -72,7 +72,7 @@ async fn raw_write_slow_bytes(mut write: impl tokio::io::AsyncWrite + Unpin) {
     use tokio::io::AsyncWriteExt;
 
     let packet: [u8; 22] = [
-        0, 0, 0, 18, 2, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200,
+        0, 0, 0, 22, 2, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200,
         200, 200,
     ];
 
@@ -91,11 +91,11 @@ async fn raw_write_batch(mut write: impl tokio::io::AsyncWrite + Unpin) {
 
     // These are 5 stacked C messages
     let packet: [u8; 110] = [
-        0, 0, 0, 18, 2, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200,
-        200, 200, 0, 0, 0, 18, 2, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200,
-        200, 200, 200, 200, 0, 0, 0, 18, 2, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200,
-        200, 200, 200, 200, 200, 200, 0, 0, 0, 18, 2, 200, 200, 200, 200, 200, 200, 200, 200, 200,
-        200, 200, 200, 200, 200, 200, 200, 200, 0, 0, 0, 18, 2, 200, 200, 200, 200, 200, 200, 200,
+        0, 0, 0, 22, 2, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200,
+        200, 200, 0, 0, 0, 22, 2, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200,
+        200, 200, 200, 200, 0, 0, 0, 22, 2, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200,
+        200, 200, 200, 200, 200, 200, 0, 0, 0, 22, 2, 200, 200, 200, 200, 200, 200, 200, 200, 200,
+        200, 200, 200, 200, 200, 200, 200, 200, 0, 0, 0, 22, 2, 200, 200, 200, 200, 200, 200, 200,
         200, 200, 200, 200, 200, 200, 200, 200, 200, 200,
     ];
 
@@ -131,7 +131,7 @@ async fn write_with_crate_loop(write: impl tokio::io::AsyncWrite + Unpin) {
 
 #[tokio::test]
 #[ignore]
-// cargo test --package bincode-bridge --lib -- tests::send_slow_bytes_to_crates --exact --show-output --ignored --nocapture
+// cargo test --package bincode-bridge --lib -- tests::send_slow_bytes_to_crate_stream --exact --show-output --ignored --nocapture
 async fn send_slow_bytes_to_crate_stream() {
     init_tracing();
 
@@ -177,7 +177,6 @@ async fn crate_sink_crate_stream() {
         decode::framed_read::FramedRead, encode::framed_write::FramedWrite, tokio::Compat, Message,
     };
     use futures::SinkExt;
-    use std::boxed::Box;
     use std::vec;
 
     init_tracing();
@@ -199,24 +198,25 @@ async fn crate_sink_crate_stream() {
     let mut reader: FramedRead<'_, _, Message> = FramedRead::new(Compat::new(read), read_buf);
     let stream = reader.stream();
 
-    let write_buf = &mut [0; 100];
-    let mut writer: FramedWrite<'_, _, Message> = FramedWrite::new(Compat::new(write), write_buf);
-    let mut sink = Box::pin(writer.sink());
+    {
+        let write_buf = &mut [0; 100];
+        let mut writer: FramedWrite<'_, _, Message> =
+            FramedWrite::new(Compat::new(write), write_buf);
+        let sink = writer.sink();
+        futures::pin_mut!(sink);
 
-    let sink_task = async {
-        for message in messages.iter() {
+        for message in messages.clone() {
             sink.send(message).await.expect("Failed to send message");
         }
-        // TODO: sink does not close. see tokio_sink_tokio_stream where the sink closes
-        sink.close().await.expect("Failed to close sink");
-        tracing::info!("Sink closed");
-    };
+        // This sink does not close so drop it
+    }
 
-    let read_task = stream.collect::<vec::Vec<_>>();
-
-    let (_, messages_read) = tokio::join!(sink_task, read_task);
-
-    let messages_read = messages_read.into_iter().flatten().collect::<vec::Vec<_>>();
+    let messages_read = stream
+        .collect::<vec::Vec<_>>()
+        .await
+        .into_iter()
+        .flatten()
+        .collect::<vec::Vec<_>>();
 
     assert_eq!(messages, messages_read);
 }
@@ -249,7 +249,7 @@ async fn tokio_sink_tokio_stream() {
     let mut sink = FramedWrite::new(write, Codec::<Message>::default());
 
     let sink_task = async {
-        for message in messages.iter() {
+        for message in messages.clone() {
             sink.send(message).await.expect("Failed to send message");
         }
         sink.close().await.expect("Failed to close sink");
