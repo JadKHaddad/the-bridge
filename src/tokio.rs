@@ -103,30 +103,30 @@ where
             tracing::trace!(%packet_size, "Checking if enough bytes are available");
         }
 
-        if src.len() < packet_size + 4 {
+        if src.len() < packet_size {
             #[cfg(feature = "tracing")]
             {
-                let remaining = packet_size + 4 - src.len();
+                let remaining = packet_size - src.len();
                 tracing::trace!(%remaining, "Not enough bytes to decode the packet. Breaking");
             }
 
-            src.reserve(packet_size + 4 - src.len());
+            src.reserve(packet_size - src.len());
 
             return Ok(None);
         }
 
-        let message_buf = &src[4..packet_size + 4];
+        let message_buf = &src[4..packet_size];
 
         #[cfg(feature = "tracing")]
         {
-            let packet_buf = &src[..packet_size + 4];
+            let packet_buf = &src[..packet_size];
             tracing::trace!(?packet_buf, ?message_buf, "Decoding message");
         }
 
         let message = bincode::decode_from_slice(message_buf, bincode::config::standard())
             .map_err(DecodeError::Decode)?;
 
-        src.advance(packet_size + 4);
+        src.advance(packet_size);
 
         Ok(Some(message.0))
     }

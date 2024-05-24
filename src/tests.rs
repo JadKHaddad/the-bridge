@@ -1,3 +1,7 @@
+use futures::StreamExt;
+
+use crate::tokio::Codec;
+
 extern crate std;
 
 fn init_tracing() {
@@ -64,7 +68,7 @@ async fn read_with_tokio_codec(read: impl tokio::io::AsyncRead + Unpin) {
         .await;
 }
 
-async fn write_slow_bytes(mut write: impl tokio::io::AsyncWrite + Unpin) {
+async fn raw_write_slow_bytes(mut write: impl tokio::io::AsyncWrite + Unpin) {
     use tokio::io::AsyncWriteExt;
 
     let packet: [u8; 22] = [
@@ -82,7 +86,7 @@ async fn write_slow_bytes(mut write: impl tokio::io::AsyncWrite + Unpin) {
     }
 }
 
-async fn write_batch(mut write: impl tokio::io::AsyncWrite + Unpin) {
+async fn raw_write_batch(mut write: impl tokio::io::AsyncWrite + Unpin) {
     use tokio::io::AsyncWriteExt;
 
     // These are 5 stacked C messages
@@ -134,7 +138,7 @@ async fn send_slow_bytes_to_crate_stream() {
     let (read, write) = tokio::io::duplex(1024);
 
     let read_task = tokio::spawn(read_with_crate_stream(read));
-    let write_task = tokio::spawn(write_slow_bytes(write));
+    let write_task = tokio::spawn(raw_write_slow_bytes(write));
 
     tokio::try_join!(read_task, write_task).expect("Failed to join tasks");
 }
@@ -148,7 +152,7 @@ async fn send_slow_bytes_to_crate_loop() {
     let (read, write) = tokio::io::duplex(1024);
 
     let read_task = tokio::spawn(read_with_crate_loop(read));
-    let write_task = tokio::spawn(write_slow_bytes(write));
+    let write_task = tokio::spawn(raw_write_slow_bytes(write));
 
     tokio::try_join!(read_task, write_task).expect("Failed to join tasks");
 }
@@ -162,9 +166,103 @@ async fn send_slow_bytes_to_tokio_codec() {
     let (read, write) = tokio::io::duplex(1024);
 
     let read_task = tokio::spawn(read_with_tokio_codec(read));
-    let write_task = tokio::spawn(write_slow_bytes(write));
+    let write_task = tokio::spawn(raw_write_slow_bytes(write));
 
     tokio::try_join!(read_task, write_task).expect("Failed to join tasks");
+}
+
+#[tokio::test]
+async fn crate_sink_crate_stream() {
+    use crate::{
+        decode::framed_read::FramedRead, encode::framed_write::FramedWrite, tokio::Compat, Message,
+    };
+    use futures::SinkExt;
+    use std::boxed::Box;
+    use std::vec;
+
+    init_tracing();
+
+    let messages = vec![
+        Message::C(
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+        ),
+        Message::C(
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+        ),
+        Message::A(100),
+        Message::B(100),
+    ];
+
+    let (read, write) = tokio::io::duplex(1024);
+
+    let read_buf: &mut [u8] = &mut [0; 50];
+    let mut reader: FramedRead<'_, _, Message> = FramedRead::new(Compat::new(read), read_buf);
+    let stream = reader.stream();
+
+    let write_buf = &mut [0; 100];
+    let mut writer: FramedWrite<'_, _, Message> = FramedWrite::new(Compat::new(write), write_buf);
+    let mut sink = Box::pin(writer.sink());
+
+    let sink_task = async {
+        for message in messages.iter() {
+            sink.send(message).await.expect("Failed to send message");
+        }
+        // TODO: sink does not close. see tokio_sink_tokio_stream where the sink closes
+        sink.close().await.expect("Failed to close sink");
+        tracing::info!("Sink closed");
+    };
+
+    let read_task = stream.collect::<vec::Vec<_>>();
+
+    let (_, messages_read) = tokio::join!(sink_task, read_task);
+
+    let messages_read = messages_read.into_iter().flatten().collect::<vec::Vec<_>>();
+
+    assert_eq!(messages, messages_read);
+}
+
+#[tokio::test]
+async fn tokio_sink_tokio_stream() {
+    use crate::Message;
+    use futures::SinkExt;
+    use std::vec;
+    use tokio_util::codec::FramedRead;
+    use tokio_util::codec::FramedWrite;
+
+    init_tracing();
+
+    let messages = vec![
+        Message::C(
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+        ),
+        Message::C(
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+        ),
+        Message::A(100),
+        Message::B(100),
+    ];
+
+    let (read, write) = tokio::io::duplex(1024);
+
+    let stream = FramedRead::new(read, Codec::<Message>::default());
+
+    let mut sink = FramedWrite::new(write, Codec::<Message>::default());
+
+    let sink_task = async {
+        for message in messages.iter() {
+            sink.send(message).await.expect("Failed to send message");
+        }
+        sink.close().await.expect("Failed to close sink");
+        tracing::info!("Sink closed");
+    };
+
+    let read_task = stream.collect::<vec::Vec<_>>();
+
+    let (_, messages_read) = tokio::join!(sink_task, read_task);
+
+    let messages_read = messages_read.into_iter().flatten().collect::<vec::Vec<_>>();
+
+    assert_eq!(messages, messages_read);
 }
 
 #[tokio::test]
