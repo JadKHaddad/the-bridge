@@ -7,6 +7,7 @@ use bincode_bridge::{
     encode::framed_write::FramedWrite,
 };
 use embassy_executor::Spawner;
+use embassy_futures::select::Either;
 use embassy_net::{tcp::TcpSocket, Config, Ipv4Address, Stack, StackResources};
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
@@ -106,26 +107,58 @@ async fn main(spawner: Spawner) -> ! {
         let read_buf: &mut [u8] = &mut [0; 100];
         let write_buf: &mut [u8] = &mut [0; 100];
 
-        let mut _reader: FramedRead<'_, _, DemoMessage> =
+        let mut reader: FramedRead<'_, _, DemoMessage> =
             FramedRead::new(Compat::new(tcp_reader), read_buf);
 
         let mut writer: FramedWrite<'_, _, DemoMessage> =
             FramedWrite::new(Compat::new(tcp_writer), write_buf);
 
         loop {
-            let message = DemoMessage::Measurement(1024);
+            let time_fut = Timer::after(Duration::from_millis(3_000));
+            let read_fut = reader.read_frame();
 
-            match writer.write_frame(&message).await {
-                Ok(_) => {
-                    log::info!("Sent message: {:?}", message);
+            match embassy_futures::select::select(time_fut, read_fut).await {
+                Either::First(_) => {
+                    let message = DemoMessage::Measurement(1024);
+
+                    match writer.write_frame(&message).await {
+                        Ok(_) => {
+                            log::info!("Sent message: {:?}", message);
+                        }
+                        Err(e) => {
+                            log::error!("Error: {:?}", e);
+                            break;
+                        }
+                    }
                 }
-                Err(e) => {
-                    log::error!("Error: {:?}", e);
-                    break;
-                }
+
+                Either::Second(read_result) => match read_result {
+                    Ok(message) => {
+                        log::info!("Received message: {:?}", message);
+
+                        match message {
+                            DemoMessage::Ping(u) => {
+                                let message = DemoMessage::Pong(u);
+
+                                match writer.write_frame(&message).await {
+                                    Ok(_) => {
+                                        log::info!("Sent message: {:?}", message);
+                                    }
+                                    Err(e) => {
+                                        log::error!("Error: {:?}", e);
+                                        break;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Error: {:?}", e);
+                        break;
+                    }
+                },
             }
-
-            Timer::after(Duration::from_millis(3_000)).await;
         }
     }
 }

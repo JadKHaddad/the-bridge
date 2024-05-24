@@ -43,37 +43,59 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let sink = writer.sink();
             futures::pin_mut!(sink);
 
-            while let Some(message) = stream.next().await {
-                match message {
-                    Ok(message) => {
-                        tracing::info!(?message, "Received message");
+            let mut ping_count = 0;
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
+                        let ping_message = DemoMessage::Ping(ping_count);
+                        ping_count += 1;
 
-                        match message {
-                            DemoMessage::Ping(u) => {
-                                let response = DemoMessage::Pong(u);
-
-                                match sink.send(response).await {
-                                    Ok(_) => {
-                                        tracing::info!("Sent response");
-                                    }
-                                    Err(error) => {
-                                        tracing::error!(?error, "Error sending response");
-                                        break;
-                                    }
-                                }
-                                tracing::info!("Received ping");
+                        match sink.send(ping_message).await {
+                            Ok(_) => {
+                                tracing::info!("Sent ping");
                             }
-                            DemoMessage::Pong(_) => {
-                                tracing::info!("Received pong");
-                            }
-                            DemoMessage::Measurement(_) => {
-                                tracing::info!("Received measurement");
+                            Err(error) => {
+                                tracing::error!(?error, "Error sending ping");
+                                break;
                             }
                         }
                     }
-                    Err(error) => {
-                        tracing::error!(?error, "Error reading message");
-                        break;
+                    message = stream.next() => {
+                        match message {
+                            None => {
+                                break;
+                            }
+                            Some(Ok(message)) => {
+                                tracing::info!(?message, "Received message");
+
+                                match message {
+                                    DemoMessage::Ping(u) => {
+                                        let response = DemoMessage::Pong(u);
+
+                                        match sink.send(response).await {
+                                            Ok(_) => {
+                                                tracing::info!("Sent response");
+                                            }
+                                            Err(error) => {
+                                                tracing::error!(?error, "Error sending response");
+                                                break;
+                                            }
+                                        }
+                                        tracing::info!("Received ping");
+                                    }
+                                    DemoMessage::Pong(_) => {
+                                        tracing::info!("Received pong");
+                                    }
+                                    DemoMessage::Measurement(_) => {
+                                        tracing::info!("Received measurement");
+                                    }
+                                }
+                            }
+                            Some(Err(error)) => {
+                                tracing::error!(?error, "Error reading message");
+                                break;
+                            }
+                        }
                     }
                 }
             }
