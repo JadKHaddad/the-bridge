@@ -4,17 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["tracing", "tokio", "embedded-io", "futures"]
+default = ["tracing", "tokio", "embedded-io", "futures", "demo"]
 embedded-io = ["dep:embedded-io-async"]
 futures = ["dep:futures"]
 tokio = ["dep:tokio", "dep:tokio-util", "futures", "bincode/std"]
 tracing = ["dep:tracing"]
+demo = []
 
 [dependencies]
 bincode = { git = "https://github.com/bincode-org/bincode.git", tag = "v2.0.0-rc.3", default-features = false, features = [
     "derive",
 ] }
-futures-core = "0.3.30"
 futures = { version = "0.3.3", default-features = false, optional = true, features = [
     "std",
 ] }

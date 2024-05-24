@@ -1,7 +1,3 @@
-use futures_core::Stream;
-
-use crate::Captures;
-
 use super::{async_read::AsyncRead, error::DecodeError};
 use core::marker::PhantomData;
 
@@ -9,6 +5,7 @@ pub struct FramedRead<'a, R, M> {
     reader: R,
     buf: &'a mut [u8],
     cursor: usize,
+    #[cfg(feature = "futures")]
     has_errored: bool,
     _phantom: PhantomData<M>,
 }
@@ -31,6 +28,7 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
             reader,
             buf,
             cursor: 0,
+            #[cfg(feature = "futures")]
             has_errored: false,
             _phantom: PhantomData,
         }
@@ -154,42 +152,50 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
             }
         }
     }
-
-    pub fn stream(
-        &'a mut self,
-    ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a Self> {
-        futures::stream::unfold(self, |this| async {
-            if this.has_errored {
-                return None;
-            }
-
-            match this.read_frame().await {
-                Ok(deocded) => Some((Ok(deocded), this)),
-                Err(err) => {
-                    this.has_errored = true;
-
-                    Some((Err(err), this))
-                }
-            }
-        })
-    }
-
-    pub fn into_stream(
-        self,
-    ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a Self> {
-        futures::stream::unfold(self, |mut this| async {
-            if this.has_errored {
-                return None;
-            }
-
-            match this.read_frame().await {
-                Ok(deocded) => Some((Ok(deocded), this)),
-                Err(err) => {
-                    this.has_errored = true;
-
-                    Some((Err(err), this))
-                }
-            }
-        })
-    }
 }
+
+#[cfg(feature = "futures")]
+const _: () = {
+    use crate::captures::Captures;
+    use futures::Stream;
+
+    impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
+        pub fn stream(
+            &'a mut self,
+        ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a Self> {
+            futures::stream::unfold(self, |this| async {
+                if this.has_errored {
+                    return None;
+                }
+
+                match this.read_frame().await {
+                    Ok(deocded) => Some((Ok(deocded), this)),
+                    Err(err) => {
+                        this.has_errored = true;
+
+                        Some((Err(err), this))
+                    }
+                }
+            })
+        }
+
+        pub fn into_stream(
+            self,
+        ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a Self> {
+            futures::stream::unfold(self, |mut this| async {
+                if this.has_errored {
+                    return None;
+                }
+
+                match this.read_frame().await {
+                    Ok(deocded) => Some((Ok(deocded), this)),
+                    Err(err) => {
+                        this.has_errored = true;
+
+                        Some((Err(err), this))
+                    }
+                }
+            })
+        }
+    }
+};

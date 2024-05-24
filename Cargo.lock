@@ -85,7 +85,6 @@ dependencies = [
  "bincode",
  "embedded-io-async",
  "futures",
- "futures-core",
  "tokio",
  "tokio-test",
  "tokio-util",

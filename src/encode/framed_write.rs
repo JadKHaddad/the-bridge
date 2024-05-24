@@ -1,7 +1,3 @@
-use futures::Sink;
-
-use crate::Captures;
-
 use super::{async_write::AsyncWrite, error::EncodeError};
 use core::marker::PhantomData;
 
@@ -73,20 +69,30 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
 
         Ok(())
     }
-
-    pub fn sink(&'a mut self) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a Self> {
-        futures::sink::unfold(self, |this, item: M| async move {
-            this.write_frame(&item).await?;
-
-            Ok::<_, EncodeError<W::Error>>(this)
-        })
-    }
-
-    pub fn into_sink(self) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a Self> {
-        futures::sink::unfold(self, |mut this, item: M| async move {
-            this.write_frame(&item).await?;
-
-            Ok::<_, EncodeError<W::Error>>(this)
-        })
-    }
 }
+
+#[cfg(feature = "futures")]
+const _: () = {
+    use crate::captures::Captures;
+    use futures::Sink;
+
+    impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
+        pub fn sink(
+            &'a mut self,
+        ) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a Self> {
+            futures::sink::unfold(self, |this, item: M| async move {
+                this.write_frame(&item).await?;
+
+                Ok::<_, EncodeError<W::Error>>(this)
+            })
+        }
+
+        pub fn into_sink(self) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a Self> {
+            futures::sink::unfold(self, |mut this, item: M| async move {
+                this.write_frame(&item).await?;
+
+                Ok::<_, EncodeError<W::Error>>(this)
+            })
+        }
+    }
+};
