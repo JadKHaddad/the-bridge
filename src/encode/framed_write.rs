@@ -1,5 +1,7 @@
 use futures::Sink;
 
+use crate::Captures;
+
 use super::{async_write::AsyncWrite, error::EncodeError};
 use core::marker::PhantomData;
 
@@ -72,7 +74,9 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
         Ok(())
     }
 
-    pub fn sink(&'a mut self) -> impl Sink<M, Error = EncodeError<W::Error>> + 'a {
+    pub fn sink(
+        &'a mut self,
+    ) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a FramedWrite<'a, W, M>> {
         futures::sink::unfold(self, |this, item: M| async move {
             this.write_frame(&item).await?;
 
@@ -80,13 +84,9 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
         })
     }
 
-    pub fn into_sink<'b, 'c>(self) -> impl Sink<M, Error = EncodeError<W::Error>> + 'c
-    where
-        'a: 'b + 'c,
-        'b: 'c,
-        M: 'b,
-        W: 'c,
-    {
+    pub fn into_sink(
+        self,
+    ) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a FramedWrite<'a, W, M>> {
         futures::sink::unfold(self, |mut this, item: M| async move {
             this.write_frame(&item).await?;
 

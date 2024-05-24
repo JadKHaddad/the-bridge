@@ -1,5 +1,7 @@
 use futures_core::Stream;
 
+use crate::Captures;
+
 use super::{async_read::AsyncRead, error::DecodeError};
 use core::marker::PhantomData;
 
@@ -153,7 +155,10 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
         }
     }
 
-    pub fn stream(&'a mut self) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + 'a {
+    pub fn stream(
+        &'a mut self,
+    ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a FramedRead<'a, R, M>>
+    {
         futures::stream::unfold(self, |this| async {
             if this.has_errored {
                 return None;
@@ -170,12 +175,9 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
         })
     }
 
-    pub fn into_stream<'b, 'c>(self) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + 'c
-    where
-        'a: 'b + 'c,
-        'b: 'c,
-        M: 'b,
-        R: 'c,
+    pub fn into_stream(
+        self,
+    ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a FramedRead<'a, R, M>>
     {
         futures::stream::unfold(self, |mut this| async {
             if this.has_errored {

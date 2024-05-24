@@ -1,5 +1,9 @@
 #![no_std]
 
+pub trait Captures<U> {}
+
+impl<T: ?Sized, U> Captures<U> for T {}
+
 use bincode::{Decode, Encode};
 use core::fmt::Debug;
 
