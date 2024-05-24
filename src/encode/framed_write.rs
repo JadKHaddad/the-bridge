@@ -9,6 +9,18 @@ pub struct FramedWrite<'a, W, M> {
     _phantom: PhantomData<M>,
 }
 
+impl<'a, W, M> AsRef<W> for FramedWrite<'a, W, M> {
+    fn as_ref(&self) -> &W {
+        &self.writer
+    }
+}
+
+impl<'a, W, M> AsMut<W> for FramedWrite<'a, W, M> {
+    fn as_mut(&mut self) -> &mut W {
+        &mut self.writer
+    }
+}
+
 impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
     pub fn new(writer: W, buf: &'a mut [u8]) -> Self {
         Self {

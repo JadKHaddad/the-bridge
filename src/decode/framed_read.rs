@@ -11,6 +11,18 @@ pub struct FramedRead<'a, R, M> {
     _phantom: PhantomData<M>,
 }
 
+impl<'a, R, M> AsRef<R> for FramedRead<'a, R, M> {
+    fn as_ref(&self) -> &R {
+        &self.reader
+    }
+}
+
+impl<'a, R, M> AsMut<R> for FramedRead<'a, R, M> {
+    fn as_mut(&mut self) -> &mut R {
+        &mut self.reader
+    }
+}
+
 impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
     pub fn new(reader: R, buf: &'a mut [u8]) -> Self {
         Self {
