@@ -6,8 +6,8 @@ pub mod encode;
 #[cfg(feature = "futures")]
 pub mod captures;
 
-#[cfg(feature = "futures")]
-pub mod futures;
+#[cfg(feature = "futures-io")]
+pub mod futures_io;
 
 #[cfg(feature = "embedded-io")]
 pub mod embedded_io;

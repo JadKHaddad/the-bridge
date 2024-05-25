@@ -11,11 +11,14 @@ embedded-io = [
 ] # Enables embedded-io-async::Read and embedded-io-async::Write compatibility
 futures = [
     "dep:futures",
-] # Enables futures::AsyncRead, futures::AsyncWrite, futures::Stream and futures::Sink compatibility
+] # Enables futures::Stream and futures::Sink compatibility
+futures-io = [
+    "futures/std",
+] # Enables futures::io::AsyncRead and futures::io::AsyncWrite compatibility and brings futures::io::Error into scope
 tokio = [
     "dep:tokio",
     "dep:tokio-util",
-    "futures",
+    "futures-io",
     "bincode/std",
 ] # Enables tokio::AsyncRead and tokio::AsyncWrite compatibility and implements tokio-util::codec::Framed 
 tracing = ["dep:tracing"] # Enables tracing
@@ -30,9 +33,7 @@ demo = [
 bincode = { git = "https://github.com/bincode-org/bincode.git", tag = "v2.0.0-rc.3", default-features = false, features = [
     "derive",
 ] }
-futures = { version = "0.3.3", default-features = false, optional = true, features = [
-    "std",
-] }
+futures = { version = "0.3.3", default-features = false, optional = true }
 embedded-io-async = { version = "0.6.1", optional = true }
 tokio = { version = "1.37.0", optional = true, default-features = false, features = [
     "io-util",

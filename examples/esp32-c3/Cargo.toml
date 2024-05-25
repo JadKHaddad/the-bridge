@@ -63,6 +63,7 @@ bincode-bridge = { path = "../../", default-features = false, features = [
     "embedded-io",
     "demo",
     "log",
+    "futures",
 ] }
 
 [profile.dev]
