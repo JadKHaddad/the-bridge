@@ -4,16 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = [
-    "std",
-    "tracing",
-    "log",
-    "defmt",
-    "tokio",
-    "embedded-io",
-    "futures",
-    "demo",
-]
+default = ["std", "tracing", "tokio", "embedded-io", "futures", "demo"]
 std = [] # Implements std::error::Error for EncodeError and DecodeError
 embedded-io = [
     "dep:embedded-io-async",

@@ -71,7 +71,18 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
         {
             let message_buf = &buf[..message_size];
             log::trace!(
-                "Message encoded. Packet size: {}, message size: {}, message: {:?}",
+                "Message encoded. packet_size: {}, message_size: {}, message_buf: {:?}",
+                packet_size,
+                message_size,
+                message_buf
+            );
+        }
+
+        #[cfg(feature = "defmt")]
+        {
+            let message_buf = &buf[..message_size];
+            defmt::trace!(
+                "Message encoded. packet_size: {}, message_size: {}, message_buf: {:?}",
                 packet_size,
                 message_size,
                 message_buf

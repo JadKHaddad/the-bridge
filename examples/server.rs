@@ -75,20 +75,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                         match sink.send(response).await {
                                             Ok(_) => {
-                                                tracing::info!("Sent response");
+                                                tracing::info!("Sent pong");
                                             }
                                             Err(error) => {
-                                                tracing::error!(?error, "Error sending response");
+                                                tracing::error!(?error, "Error sending pong");
                                                 break;
                                             }
                                         }
-                                        tracing::info!("Received ping");
                                     }
                                     DemoMessage::Pong(_) => {
-                                        tracing::info!("Received pong");
                                     }
                                     DemoMessage::Measurement(_) => {
-                                        tracing::info!("Received measurement");
                                     }
                                 }
                             }
