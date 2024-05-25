@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["tracing", "tokio", "embedded-io", "futures", "demo"]
+default = ["std", "tracing", "tokio", "embedded-io", "futures", "demo"]
+std = []
 embedded-io = ["dep:embedded-io-async"]
 futures = ["dep:futures"]
 tokio = ["dep:tokio", "dep:tokio-util", "futures", "bincode/std"]
