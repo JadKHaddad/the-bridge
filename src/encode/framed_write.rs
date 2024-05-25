@@ -61,33 +61,27 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
             .await
             .map_err(EncodeError::Io)?;
 
+        #[cfg(any(feature = "tracing", feature = "log", feature = "defmt"))]
+        let message_buf = &buf[..message_size];
+
         #[cfg(feature = "tracing")]
-        {
-            let message_buf = &buf[..message_size];
-            tracing::trace!(%packet_size, %message_size, ?message_buf, "Message encoded");
-        }
+        tracing::trace!(%packet_size, %message_size, ?message_buf, "Message encoded");
 
         #[cfg(feature = "log")]
-        {
-            let message_buf = &buf[..message_size];
-            log::info!(
-                "Message encoded. packet_size: {}, message_size: {}, message_buf: {:?}",
-                packet_size,
-                message_size,
-                message_buf
-            );
-        }
+        log::info!(
+            "Message encoded. packet_size: {}, message_size: {}, message_buf: {:?}",
+            packet_size,
+            message_size,
+            message_buf
+        );
 
         #[cfg(feature = "defmt")]
-        {
-            let message_buf = &buf[..message_size];
-            defmt::info!(
-                "Message encoded. packet_size: {}, message_size: {}, message_buf: {:?}",
-                packet_size,
-                message_size,
-                message_buf
-            );
-        }
+        defmt::info!(
+            "Message encoded. packet_size: {}, message_size: {}, message_buf: {:?}",
+            packet_size,
+            message_size,
+            message_buf
+        );
 
         Ok(())
     }
