@@ -83,6 +83,7 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
         Ok(())
     }
 
+    // FIXME: find a better way to shift the buffer thatn copy_within
     pub async fn read_frame(&mut self) -> Result<M, DecodeError<R::Error>> {
         loop {
             if self.cursor >= 4 {
