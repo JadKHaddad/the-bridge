@@ -67,6 +67,17 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
             tracing::trace!(%packet_size, %message_size, ?message_buf, "Message encoded");
         }
 
+        #[cfg(feature = "log")]
+        {
+            let message_buf = &buf[..message_size];
+            log::trace!(
+                "Message encoded. Packet size: {}, message size: {}, message: {:?}",
+                packet_size,
+                message_size,
+                message_buf
+            );
+        }
+
         Ok(())
     }
 }

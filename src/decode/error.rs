@@ -1,5 +1,4 @@
 #[derive(Debug)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DecodeError<E> {
     Io(E),
     Decode(bincode::error::DecodeError),
@@ -21,4 +20,18 @@ const _: () = {
     }
 
     impl<E: std::error::Error> std::error::Error for DecodeError<E> {}
+};
+
+#[cfg(feature = "defmt")]
+const _: () = {
+    impl<E: defmt::Format> defmt::Format for DecodeError<E> {
+        fn format(&self, f: defmt::Formatter) {
+            match self {
+                Self::Io(error) => defmt::write!(f, "IO error: {}", error),
+                Self::Decode(_) => defmt::write!(f, "Decode error"),
+                Self::ReadZero => defmt::write!(f, "Read zero bytes"),
+                Self::BufferIsFull => defmt::write!(f, "Buffer is full"),
+            }
+        }
+    }
 };

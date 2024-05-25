@@ -1,5 +1,4 @@
 #[derive(Debug)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum EncodeError<E> {
     Io(E),
     Encode(bincode::error::EncodeError),
@@ -21,4 +20,18 @@ const _: () = {
     }
 
     impl<E: std::error::Error> std::error::Error for EncodeError<E> {}
+};
+
+#[cfg(feature = "defmt")]
+const _: () = {
+    impl<E: defmt::Format> defmt::Format for EncodeError<E> {
+        fn format(&self, f: defmt::Formatter) {
+            match self {
+                Self::Io(error) => defmt::write!(f, "IO error: {}", error),
+                Self::Encode(_) => defmt::write!(f, "Encode error"),
+                Self::BufferTooShort => defmt::write!(f, "Buffer is too short"),
+                Self::MessageTooLarge => defmt::write!(f, "Message is too large"),
+            }
+        }
+    }
 };
