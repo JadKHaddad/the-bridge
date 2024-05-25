@@ -70,7 +70,7 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
         #[cfg(feature = "log")]
         {
             let message_buf = &buf[..message_size];
-            log::trace!(
+            log::info!(
                 "Message encoded. packet_size: {}, message_size: {}, message_buf: {:?}",
                 packet_size,
                 message_size,
@@ -81,7 +81,7 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
         #[cfg(feature = "defmt")]
         {
             let message_buf = &buf[..message_size];
-            defmt::trace!(
+            defmt::info!(
                 "Message encoded. packet_size: {}, message_size: {}, message_buf: {:?}",
                 packet_size,
                 message_size,
