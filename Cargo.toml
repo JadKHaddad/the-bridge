@@ -55,4 +55,4 @@ futures = "0.3.3"
 [[example]]
 name = "server"
 path = "examples/server.rs"
-required-features = ["tracing", "tokio"]
+required-features = ["tracing", "tokio", "demo"]
