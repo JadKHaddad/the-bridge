@@ -10,6 +10,8 @@ embedded-io = ["dep:embedded-io-async"]
 futures = ["dep:futures"]
 tokio = ["dep:tokio", "dep:tokio-util", "futures", "bincode/std"]
 tracing = ["dep:tracing"]
+log = ["dep:log"]
+defmt = ["dep:defmt"]
 demo = []
 
 [dependencies]
@@ -27,6 +29,8 @@ tokio-util = { version = "0.7.11", optional = true, default-features = false, fe
     "codec",
 ] }
 tracing = { version = "0.1.40", optional = true }
+log = { version = "0.4.20", optional = true }
+defmt = { version = "0.3.6", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -40,5 +44,3 @@ futures = "0.3.3"
 name = "server"
 path = "examples/server.rs"
 required-features = ["tracing", "tokio"]
-
-# TODO: add log and defmt features
