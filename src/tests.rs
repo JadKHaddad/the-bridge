@@ -1,6 +1,9 @@
 extern crate std;
 
+use core::panic;
 use std::{boxed::Box, string::String, vec::Vec};
+
+use futures::pin_mut;
 
 #[derive(Debug, Clone, bincode::Encode, bincode::Decode, PartialEq)]
 enum TestMessage {
@@ -510,6 +513,40 @@ async fn tokio_sink_tokio_stream() {
     let (_, messages_read) = tokio::join!(write_task, read_task);
 
     assert_eq!(messages, messages_read);
+}
+
+// -----------------------------------------------------------------------------
+
+#[tokio::test]
+async fn cancel_crate_stream() {
+    use crate::{decode::framed_read::FramedRead, tokio::Compat};
+    use futures::StreamExt;
+
+    init_tracing();
+
+    let (read, write) = tokio::io::duplex(1024);
+
+    let buf: &mut [u8] = &mut [0; 50];
+
+    let mut reader: FramedRead<'_, _, TestMessage> = FramedRead::new(Compat::new(read), buf);
+    let stream = reader.stream();
+    pin_mut!(stream);
+
+    tokio::spawn(raw_write_slow_bytes_of_z_message(write));
+
+    loop {
+        tokio::select! {
+            _ = tokio::time::sleep(tokio::time::Duration::from_millis(500)) => {
+                tracing::debug!("Cancelling next message");
+            },
+            item = stream.next() => {
+                let item = item.expect("Stream ended").expect("Failed to read item");
+                assert_eq!(item, z_test_message());
+
+                return;
+            }
+        }
+    }
 }
 
 // -----------------------------------------------------------------------------
