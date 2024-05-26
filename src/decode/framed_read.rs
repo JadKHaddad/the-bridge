@@ -1,6 +1,7 @@
 use super::{async_read::AsyncRead, error::DecodeError};
 use core::marker::PhantomData;
 
+// TODO: add a pinned inner FramedReadImpl and impl stream on it and then impl stream on FramedRead so we can use next() without pinning!
 pub struct FramedRead<'a, R, M> {
     reader: R,
     buf: &'a mut [u8],
