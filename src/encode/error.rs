@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub enum EncodeError<E> {
+pub enum FramedWriteError<E> {
     Io(E),
     Encode(bincode::error::EncodeError),
     BufferTooShort,
@@ -8,7 +8,7 @@ pub enum EncodeError<E> {
 
 #[cfg(feature = "std")]
 const _: () = {
-    impl<E: std::fmt::Display> std::fmt::Display for EncodeError<E> {
+    impl<E: std::fmt::Display> std::fmt::Display for FramedWriteError<E> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
                 Self::Io(error) => write!(f, "IO error: {}", error),
@@ -19,12 +19,12 @@ const _: () = {
         }
     }
 
-    impl<E: std::error::Error> std::error::Error for EncodeError<E> {}
+    impl<E: std::error::Error> std::error::Error for FramedWriteError<E> {}
 };
 
 #[cfg(feature = "defmt")]
 const _: () = {
-    impl<E: defmt::Format> defmt::Format for EncodeError<E> {
+    impl<E: defmt::Format> defmt::Format for FramedWriteError<E> {
         fn format(&self, f: defmt::Formatter) {
             match self {
                 Self::Io(error) => defmt::write!(f, "IO error: {}", error),

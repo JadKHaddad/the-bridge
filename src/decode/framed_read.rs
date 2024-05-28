@@ -1,4 +1,4 @@
-use super::{async_read::AsyncRead, error::DecodeError};
+use super::{async_read::AsyncRead, error::FramedReadError};
 use core::marker::PhantomData;
 
 // TODO: add a pinned inner FramedReadImpl and impl stream on it and then impl stream on FramedRead so we can use next() without pinning!
@@ -39,14 +39,14 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
         self.reader
     }
 
-    async fn fill_buf(&mut self) -> Result<(), DecodeError<R::Error>> {
+    async fn fill_buf(&mut self) -> Result<(), FramedReadError<R::Error>> {
         let buf = self.buf.as_mut();
         let read = self
             .reader
             // Cursor will never be > buf.len()
             .read(&mut buf[self.cursor..])
             .await
-            .map_err(DecodeError::Io)?;
+            .map_err(FramedReadError::Io)?;
 
         #[cfg(feature = "tracing")]
         tracing::trace!(%read);
@@ -60,11 +60,11 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
         if read == 0 {
             if self.cursor == buf.len() {
                 // The packet is too big
-                return Err(DecodeError::BufferIsFull);
+                return Err(FramedReadError::BufferIsFull);
             }
 
             // Got EOF
-            return Err(DecodeError::ReadZero);
+            return Err(FramedReadError::ReadZero);
         }
 
         self.cursor += read;
@@ -85,7 +85,7 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
     }
 
     // FIXME: find a better way to shift the buffer thatn copy_within
-    pub async fn read_frame(&mut self) -> Result<M, DecodeError<R::Error>> {
+    pub async fn read_frame(&mut self) -> Result<M, FramedReadError<R::Error>> {
         loop {
             if self.cursor >= 4 {
                 let packet_size =
@@ -217,7 +217,7 @@ impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
                 // Here we have a full packet
                 // Decode message starting from the 5th byte
                 let message = bincode::decode_from_slice(message_buf, bincode::config::standard())
-                    .map_err(DecodeError::Decode)?;
+                    .map_err(FramedReadError::Decode)?;
 
                 self.cursor -= packet_size;
                 self.buf.copy_within(packet_size.., 0);
@@ -256,7 +256,7 @@ const _: () = {
     impl<'a, R: AsyncRead, M: bincode::Decode> FramedRead<'a, R, M> {
         pub fn stream(
             &'a mut self,
-        ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a Self> {
+        ) -> impl Stream<Item = Result<M, FramedReadError<R::Error>>> + Captures<&'a Self> {
             futures::stream::unfold(self, |this| async {
                 if this.has_errored {
                     return None;
@@ -275,7 +275,7 @@ const _: () = {
 
         pub fn into_stream(
             self,
-        ) -> impl Stream<Item = Result<M, DecodeError<R::Error>>> + Captures<&'a Self> {
+        ) -> impl Stream<Item = Result<M, FramedReadError<R::Error>>> + Captures<&'a Self> {
             futures::stream::unfold(self, |mut this| async {
                 if this.has_errored {
                     return None;

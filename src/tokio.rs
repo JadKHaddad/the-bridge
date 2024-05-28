@@ -1,6 +1,6 @@
 use crate::{
-    decode::{async_read::AsyncRead, error::DecodeError},
-    encode::{async_write::AsyncWrite, error::EncodeError},
+    decode::{async_read::AsyncRead, error::FramedReadError},
+    encode::{async_write::AsyncWrite, error::FramedWriteError},
 };
 use core::{future::Future, marker::PhantomData};
 use futures::io::Error as IoError;
@@ -74,9 +74,9 @@ impl<M> Default for Codec<M> {
 }
 
 /// Implement [`From`] [`IoError`] for [`DecodeError`] to be be able to implement [`Decoder`] for [`Codec`]
-impl<IoError> From<IoError> for DecodeError<IoError> {
+impl<IoError> From<IoError> for FramedReadError<IoError> {
     fn from(err: IoError) -> Self {
-        DecodeError::Io(err)
+        FramedReadError::Io(err)
     }
 }
 
@@ -85,7 +85,7 @@ where
     M: bincode::Decode,
 {
     type Item = M;
-    type Error = DecodeError<IoError>;
+    type Error = FramedReadError<IoError>;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if src.len() < 4 {
@@ -128,7 +128,7 @@ where
         }
 
         let message = bincode::decode_from_slice(message_buf, bincode::config::standard())
-            .map_err(DecodeError::Decode)?;
+            .map_err(FramedReadError::Decode)?;
 
         src.advance(packet_size);
 
@@ -137,9 +137,9 @@ where
 }
 
 /// Implement [`From`] [`IoError`] for [`EncodeError`] to be be able to implement [`Encoder`] for [`Codec`]
-impl<IoError> From<IoError> for EncodeError<IoError> {
+impl<IoError> From<IoError> for FramedWriteError<IoError> {
     fn from(err: IoError) -> Self {
-        EncodeError::Io(err)
+        FramedWriteError::Io(err)
     }
 }
 
@@ -147,17 +147,17 @@ impl<M> Encoder<M> for Codec<M>
 where
     M: bincode::Encode,
 {
-    type Error = EncodeError<IoError>;
+    type Error = FramedWriteError<IoError>;
 
     fn encode(&mut self, item: M, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let message = bincode::encode_to_vec(item, bincode::config::standard())
-            .map_err(EncodeError::Encode)?;
+            .map_err(FramedWriteError::Encode)?;
 
         let message_size = message.len();
         let packet_size = message_size + 4;
 
         if message_size > u32::MAX as usize {
-            return Err(EncodeError::MessageTooLarge);
+            return Err(FramedWriteError::MessageTooLarge);
         }
 
         dst.reserve(packet_size);

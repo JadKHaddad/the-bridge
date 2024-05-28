@@ -1,4 +1,4 @@
-use super::{async_write::AsyncWrite, error::EncodeError};
+use super::{async_write::AsyncWrite, error::FramedWriteError};
 use core::marker::PhantomData;
 
 pub struct FramedWrite<'a, W, M> {
@@ -32,20 +32,20 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
         self.writer
     }
 
-    pub async fn write_frame(&mut self, message: &M) -> Result<(), EncodeError<W::Error>> {
+    pub async fn write_frame(&mut self, message: &M) -> Result<(), FramedWriteError<W::Error>> {
         let buf = self.buf.as_mut();
 
         if buf.len() < 4 {
-            return Err(EncodeError::BufferTooShort);
+            return Err(FramedWriteError::BufferTooShort);
         }
 
         // Encode message starting from the 5th byte, leaving the first 4 bytes for the packet size
         let message_size =
             bincode::encode_into_slice(message, &mut buf[4..], bincode::config::standard())
-                .map_err(EncodeError::Encode)?;
+                .map_err(FramedWriteError::Encode)?;
 
         if message_size > u32::MAX as usize {
-            return Err(EncodeError::MessageTooLarge);
+            return Err(FramedWriteError::MessageTooLarge);
         }
 
         let packet_size = message_size as u32 + 4;
@@ -59,7 +59,7 @@ impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
         self.writer
             .write_all(&buf[..packet_size as usize])
             .await
-            .map_err(EncodeError::Io)?;
+            .map_err(FramedWriteError::Io)?;
 
         #[cfg(any(feature = "tracing", feature = "log", feature = "defmt"))]
         let message_buf = &buf[..message_size];
@@ -95,19 +95,21 @@ const _: () = {
     impl<'a, W: AsyncWrite, M: bincode::Encode> FramedWrite<'a, W, M> {
         pub fn sink(
             &'a mut self,
-        ) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a Self> {
+        ) -> impl Sink<M, Error = FramedWriteError<W::Error>> + Captures<&'a Self> {
             futures::sink::unfold(self, |this, item: M| async move {
                 this.write_frame(&item).await?;
 
-                Ok::<_, EncodeError<W::Error>>(this)
+                Ok::<_, FramedWriteError<W::Error>>(this)
             })
         }
 
-        pub fn into_sink(self) -> impl Sink<M, Error = EncodeError<W::Error>> + Captures<&'a Self> {
+        pub fn into_sink(
+            self,
+        ) -> impl Sink<M, Error = FramedWriteError<W::Error>> + Captures<&'a Self> {
             futures::sink::unfold(self, |mut this, item: M| async move {
                 this.write_frame(&item).await?;
 
-                Ok::<_, EncodeError<W::Error>>(this)
+                Ok::<_, FramedWriteError<W::Error>>(this)
             })
         }
     }
