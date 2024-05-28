@@ -79,22 +79,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bincode-bridge"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "defmt",
- "embedded-io-async",
- "futures",
- "log",
- "tokio",
- "tokio-test",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "bincode_derive"
 version = "2.0.0-rc.3"
 source = "git+https://github.com/bincode-org/bincode.git?tag=v2.0.0-rc.3#aada4bb4cb457677a4b8e47572ae7ca8dd44927c"
@@ -608,6 +592,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "the-bridge"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "defmt",
+ "embedded-io-async",
+ "futures",
+ "log",
+ "tokio",
+ "tokio-test",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

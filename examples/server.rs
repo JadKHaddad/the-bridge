@@ -1,9 +1,9 @@
-use bincode_bridge::{
+use futures::SinkExt;
+use futures::StreamExt;
+use the_bridge::{
     decode::framed_read::FramedRead, demo::DemoMessage, encode::framed_write::FramedWrite,
     tokio::Compat,
 };
-use futures::SinkExt;
-use futures::StreamExt;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

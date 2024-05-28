@@ -2,7 +2,7 @@
 #![no_main]
 #![feature(type_alias_impl_trait)]
 
-use bincode_bridge::{
+use the_bridge::{
     decode::framed_read::FramedRead, demo::DemoMessage, embedded_io::Compat,
     encode::framed_write::FramedWrite,
 };

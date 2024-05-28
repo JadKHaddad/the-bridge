@@ -98,16 +98,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bincode-bridge"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "embedded-io-async",
- "futures",
- "log",
-]
-
-[[package]]
 name = "bincode_derive"
 version = "2.0.0-rc.3"
 source = "git+https://github.com/bincode-org/bincode.git?tag=v2.0.0-rc.3#aada4bb4cb457677a4b8e47572ae7ca8dd44927c"
@@ -613,7 +603,6 @@ dependencies = [
 name = "esp32-c3-example"
 version = "0.1.0"
 dependencies = [
- "bincode-bridge",
  "embassy-executor",
  "embassy-futures",
  "embassy-net",
@@ -634,6 +623,7 @@ dependencies = [
  "no-std-net 0.6.0",
  "smoltcp 0.10.0",
  "static_cell",
+ "the-bridge",
 ]
 
 [[package]]
@@ -1345,6 +1335,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "the-bridge"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "embedded-io-async",
+ "futures",
+ "log",
 ]
 
 [[package]]
