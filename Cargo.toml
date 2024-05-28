@@ -30,7 +30,7 @@ demo = [
 ] # Enables the demo module with a ready-to-use DemoMessage that can be used to test the bridge
 
 [dependencies]
-bincode = { git = "https://github.com/bincode-org/bincode.git", tag = "v2.0.0-rc.3", default-features = false, features = [
+bincode = { version = "2.0.0-rc.3", default-features = false, features = [
     "derive",
 ] }
 futures = { version = "0.3.3", default-features = false, optional = true }
