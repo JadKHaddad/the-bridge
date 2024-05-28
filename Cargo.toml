@@ -2,6 +2,12 @@
 name = "the-bridge"
 version = "0.0.1"
 edition = "2021"
+authors = ["Jad K. Haddad <jadkhaddad@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "A Simple and Efficient Binary Protocol Bridge for std and no_std Environments"
+repository = "https://github.com/JadKHaddad/the-bridge"
+readme = "README.md"
+keywords = ["protocol", "async", "no_std"]
 
 [features]
 default = ["std", "tracing", "tokio", "embedded-io", "futures", "demo"]
