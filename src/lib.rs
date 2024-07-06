@@ -1,5 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// TODO: add a constant PAKET_SIZE instead of hardcoding 4
+// TODO: update esp32-c3 example to 0.18.0
+
 pub mod decode;
 pub mod encode;
 

@@ -1,5 +1,6 @@
 use core::future::Future;
 
+// TODO: make sure AsyncWrite can close the connection so we can call it on sink close
 pub trait AsyncWrite {
     type Error;
 

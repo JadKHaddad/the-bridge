@@ -1,6 +1,7 @@
 use super::{async_write::AsyncWrite, error::FramedWriteError};
 use core::marker::PhantomData;
 
+// TODO: impl sink for FramedWrite
 pub struct FramedWrite<'a, W, M> {
     writer: W,
     buf: &'a mut [u8],

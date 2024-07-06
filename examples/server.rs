@@ -27,6 +27,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::debug!("Connected");
 
         tokio::spawn(async move {
+            // You can use TokioCodec instead of the FramedRead and FramedWrite
+
             let (reader, writer) = socket.into_split();
 
             let read_buf: &mut [u8] = &mut [0; 100];
