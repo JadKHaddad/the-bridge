@@ -12,7 +12,7 @@ keywords = ["protocol", "async", "no_std", "embedded"]
 [features]
 default = ["cody-c"]
 std = []
-tokio = ["std", "dep:tokio-util"]
+tokio = ["std", "dep:tokio-util", "bincode/std"]
 cody-c = ["dep:cody-c"]
 defmt = ["dep:defmt"]
 
