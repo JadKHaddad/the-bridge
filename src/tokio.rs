@@ -6,12 +6,13 @@ use tokio_util::{
 
 #[derive(Debug)]
 pub enum EncodeError {
-    IO(tokio::io::Error),
+    IO(std::io::Error),
     Encode(bincode::error::EncodeError),
+    MessageTooBig,
 }
 
-impl From<tokio::io::Error> for EncodeError {
-    fn from(err: tokio::io::Error) -> Self {
+impl From<std::io::Error> for EncodeError {
+    fn from(err: std::io::Error) -> Self {
         EncodeError::IO(err)
     }
 }
@@ -27,8 +28,13 @@ where
 
         dst.put_u32(0);
 
-        bincode::encode_into_std_write(item, &mut dst.writer(), bincode::config::standard())
-            .map_err(EncodeError::Encode)?;
+        let message_size =
+            bincode::encode_into_std_write(item, &mut dst.writer(), bincode::config::standard())
+                .map_err(EncodeError::Encode)?;
+
+        if message_size > u32::MAX as usize {
+            return Err(EncodeError::MessageTooBig);
+        }
 
         let packet_size = (dst.len() - start_len) as u32;
         let packet_size_bytes = packet_size.to_be_bytes();
@@ -41,13 +47,13 @@ where
 
 #[derive(Debug)]
 pub enum DecodeError {
-    IO(tokio::io::Error),
+    IO(std::io::Error),
     InvalidFrameSize,
     Decode(bincode::error::DecodeError),
 }
 
-impl From<tokio::io::Error> for DecodeError {
-    fn from(err: tokio::io::Error) -> Self {
+impl From<std::io::Error> for DecodeError {
+    fn from(err: std::io::Error) -> Self {
         DecodeError::IO(err)
     }
 }
@@ -106,10 +112,6 @@ mod test {
             let codec = Codec::<TestMessage>::new();
             let mut framed_write = FramedWrite::new(write, codec);
 
-            // for item in items {
-            //     framed_write.send(item).await.unwrap();
-            // }
-
             framed_write
                 .send_all(&mut stream::iter(items.into_iter().map(Ok)))
                 .await
@@ -132,7 +134,6 @@ mod test {
 
         let items = test_messages();
 
-        // Assertion to compare sent and received items
         assert_eq!(collected_items, items);
     }
 }

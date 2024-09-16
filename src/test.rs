@@ -1,3 +1,6 @@
+extern crate std;
+use std::{boxed::Box, string::String, vec::Vec};
+
 #[derive(Debug, Clone, bincode::Encode, bincode::Decode, PartialEq)]
 pub enum TestMessage {
     A(u8),
@@ -73,4 +76,85 @@ pub fn test_messages() -> Vec<TestMessage> {
         TestMessage::I(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17),
         z_test_message(),
     ]
+}
+
+#[cfg(all(feature = "tokio", feature = "cody-c"))]
+mod comp {
+    use cody_c::{tokio::Compat, FramedRead as CodyFramedRead, FramedWrite as CodyFramedWrite};
+    use futures::{stream, SinkExt, StreamExt};
+    use tokio_util::codec::{FramedRead as TokioFramedRead, FramedWrite as TokioFramedWrite};
+
+    use super::*;
+    use crate::codec::Codec;
+
+    #[tokio::test]
+    async fn cody_sink_tokio_stream() {
+        let items = test_messages();
+
+        let (read, write) = tokio::io::duplex(16);
+
+        let handle = tokio::spawn(async move {
+            let write_buf = &mut [0_u8; 128];
+            let codec = Codec::<TestMessage>::new();
+            let mut framed_write = CodyFramedWrite::new(Compat::new(write), codec, write_buf);
+
+            for item in items {
+                framed_write.send(item).await.unwrap();
+            }
+
+            framed_write.close().await.unwrap();
+        });
+
+        let codec = Codec::<TestMessage>::new();
+        let framed_read = TokioFramedRead::new(read, codec);
+
+        let collected_items: Vec<_> = framed_read
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+
+        handle.await.unwrap();
+
+        let items = test_messages();
+
+        assert_eq!(collected_items, items);
+    }
+
+    #[tokio::test]
+    async fn tokio_sink_cody_stream() {
+        let items = test_messages();
+
+        let (read, write) = tokio::io::duplex(16);
+
+        let handle = tokio::spawn(async move {
+            let codec = Codec::<TestMessage>::new();
+            let mut framed_write = TokioFramedWrite::new(write, codec);
+
+            framed_write
+                .send_all(&mut stream::iter(items.into_iter().map(Ok)))
+                .await
+                .unwrap();
+
+            framed_write.close().await.unwrap();
+        });
+
+        let read_buf = &mut [0_u8; 128];
+        let codec = Codec::<TestMessage>::new();
+        let framed_read = CodyFramedRead::new(Compat::new(read), codec, read_buf);
+
+        let collected_items: Vec<_> = framed_read
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+
+        handle.await.unwrap();
+
+        let items = test_messages();
+
+        assert_eq!(collected_items, items);
+    }
 }
