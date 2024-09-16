@@ -10,5 +10,8 @@ mod cody_c;
 #[cfg(feature = "tokio")]
 mod tokio;
 
+#[cfg(feature = "demo")]
+pub mod demo;
+
 #[cfg(test)]
 pub mod test;

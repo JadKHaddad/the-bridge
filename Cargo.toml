@@ -14,7 +14,7 @@ default = ["cody-c"]
 std = []
 tokio = ["std", "dep:tokio-util", "bincode/std"]
 cody-c = ["dep:cody-c"]
-defmt = ["dep:defmt"]
+demo = []
 
 [dependencies]
 bincode = { version = "2.0.0-rc.3", default-features = false, features = [
@@ -24,7 +24,6 @@ cody-c = { version = "0.1.0", optional = true, default-features = false }
 tokio-util = { version = "0.7.12", optional = true, default-features = false, features = [
     "codec",
 ] }
-defmt = { version = "0.3.6", optional = true }
 
 [dev-dependencies]
 bincode = { version = "2.0.0-rc.3", default-features = false, features = [
@@ -35,8 +34,10 @@ tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.11", features = ["codec"] }
 cody-c = { version = "0.1.0", default-features = false, features = ["tokio"] }
 futures = "0.3.3"
+tracing = { version = "0.1.40", default-features = false }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
-# [[example]]
-# name = "server"
-# path = "examples/server.rs"
-# required-features = ["tracing", "tokio", "demo"]
+[[example]]
+name = "server"
+path = "examples/server.rs"
+required-features = ["tokio", "demo"]
