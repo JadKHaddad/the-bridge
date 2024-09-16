@@ -1,82 +1,54 @@
-use crate::{
-    decode::{async_read::AsyncRead, error::FramedReadError},
-    encode::{async_write::AsyncWrite, error::FramedWriteError},
-};
-use core::{future::Future, marker::PhantomData};
-use futures::io::Error as IoError;
-use tokio::io::{
-    AsyncRead as TokioAsyncRead, AsyncReadExt, AsyncWrite as TokioAsyncWrite, AsyncWriteExt,
-};
+use crate::codec::Codec;
 use tokio_util::{
     bytes::{Buf, BufMut, BytesMut},
     codec::{Decoder, Encoder},
 };
 
-pub struct Compat<T>(T);
+#[derive(Debug)]
+pub enum EncodeError {
+    IO(tokio::io::Error),
+    Encode(bincode::error::EncodeError),
+}
 
-impl<T> Compat<T> {
-    pub fn new(inner: T) -> Self {
-        Self(inner)
-    }
-
-    pub fn into_inner(self) -> T {
-        self.0
+impl From<tokio::io::Error> for EncodeError {
+    fn from(err: tokio::io::Error) -> Self {
+        EncodeError::IO(err)
     }
 }
 
-impl<T> AsRef<T> for Compat<T> {
-    fn as_ref(&self) -> &T {
-        &self.0
-    }
-}
-
-impl<T> AsMut<T> for Compat<T> {
-    fn as_mut(&mut self) -> &mut T {
-        &mut self.0
-    }
-}
-
-impl<R> AsyncRead for Compat<R>
+impl<M> Encoder<M> for Codec<M>
 where
-    R: TokioAsyncRead + Unpin,
+    M: bincode::Encode,
 {
-    type Error = IoError;
+    type Error = EncodeError;
 
-    fn read<'a>(
-        &'a mut self,
-        buf: &'a mut [u8],
-    ) -> impl Future<Output = Result<usize, Self::Error>> {
-        self.0.read(buf)
+    fn encode(&mut self, item: M, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        let start_len = dst.len();
+
+        dst.put_u32(0);
+
+        bincode::encode_into_std_write(item, &mut dst.writer(), bincode::config::standard())
+            .map_err(EncodeError::Encode)?;
+
+        let packet_size = (dst.len() - start_len) as u32;
+        let packet_size_bytes = packet_size.to_be_bytes();
+
+        dst[start_len..start_len + 4].copy_from_slice(&packet_size_bytes);
+
+        Ok(())
     }
 }
 
-impl<W> AsyncWrite for Compat<W>
-where
-    W: TokioAsyncWrite + Unpin,
-{
-    type Error = IoError;
-
-    fn write_all<'a>(&'a mut self, buf: &'a [u8]) -> impl Future<Output = Result<(), Self::Error>> {
-        self.0.write_all(buf)
-    }
+#[derive(Debug)]
+pub enum DecodeError {
+    IO(tokio::io::Error),
+    InvalidFrameSize,
+    Decode(bincode::error::DecodeError),
 }
 
-pub struct Codec<M> {
-    _phantom: PhantomData<M>,
-}
-
-impl<M> Default for Codec<M> {
-    fn default() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
-    }
-}
-
-/// Implement [`From`] [`IoError`] for [`DecodeError`] to be be able to implement [`Decoder`] for [`Codec`]
-impl<IoError> From<IoError> for FramedReadError<IoError> {
-    fn from(err: IoError) -> Self {
-        FramedReadError::Io(err)
+impl From<tokio::io::Error> for DecodeError {
+    fn from(err: tokio::io::Error) -> Self {
+        DecodeError::IO(err)
     }
 }
 
@@ -85,50 +57,28 @@ where
     M: bincode::Decode,
 {
     type Item = M;
-    type Error = FramedReadError<IoError>;
+    type Error = DecodeError;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if src.len() < 4 {
-            #[cfg(feature = "tracing")]
-            {
-                tracing::trace!(
-                    source_length = src.len(),
-                    "Not enough bytes to read packet size"
-                );
-            }
-
             return Ok(None);
         }
 
         let packet_size = u32::from_be_bytes([src[0], src[1], src[2], src[3]]) as usize;
 
-        #[cfg(feature = "tracing")]
-        {
-            tracing::trace!(%packet_size, "Checking if enough bytes are available");
-        }
-
         if src.len() < packet_size {
-            #[cfg(feature = "tracing")]
-            {
-                let remaining = packet_size - src.len();
-                tracing::trace!(%remaining, "Not enough bytes to decode the packet. Breaking");
-            }
-
             src.reserve(packet_size - src.len());
 
             return Ok(None);
         }
 
-        let message_buf = &src[4..packet_size];
-
-        #[cfg(feature = "tracing")]
-        {
-            let packet_buf = &src[..packet_size];
-            tracing::trace!(?packet_buf, ?message_buf, "Decoding message");
+        if packet_size < 4 {
+            return Err(DecodeError::InvalidFrameSize);
         }
 
+        let message_buf = &src[4..packet_size];
         let message = bincode::decode_from_slice(message_buf, bincode::config::standard())
-            .map_err(FramedReadError::Decode)?;
+            .map_err(DecodeError::Decode)?;
 
         src.advance(packet_size);
 
@@ -136,39 +86,53 @@ where
     }
 }
 
-/// Implement [`From`] [`IoError`] for [`EncodeError`] to be be able to implement [`Encoder`] for [`Codec`]
-impl<IoError> From<IoError> for FramedWriteError<IoError> {
-    fn from(err: IoError) -> Self {
-        FramedWriteError::Io(err)
-    }
-}
+#[cfg(test)]
+mod test {
+    use futures::{stream, SinkExt, StreamExt};
+    use tokio_util::codec::{FramedRead, FramedWrite};
 
-impl<M> Encoder<M> for Codec<M>
-where
-    M: bincode::Encode,
-{
-    type Error = FramedWriteError<IoError>;
+    use crate::{
+        codec::Codec,
+        test::{test_messages, TestMessage},
+    };
 
-    fn encode(&mut self, item: M, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        let message = bincode::encode_to_vec(item, bincode::config::standard())
-            .map_err(FramedWriteError::Encode)?;
+    #[tokio::test]
+    async fn sink_stream() {
+        let items = test_messages();
 
-        let message_size = message.len();
-        let packet_size = message_size + 4;
+        let (read, write) = tokio::io::duplex(16);
 
-        if message_size > u32::MAX as usize {
-            return Err(FramedWriteError::MessageTooLarge);
-        }
+        let handle = tokio::spawn(async move {
+            let codec = Codec::<TestMessage>::new();
+            let mut framed_write = FramedWrite::new(write, codec);
 
-        dst.reserve(packet_size);
-        dst.put_u32(packet_size as u32);
-        dst.put_slice(&message);
+            // for item in items {
+            //     framed_write.send(item).await.unwrap();
+            // }
 
-        #[cfg(feature = "tracing")]
-        {
-            tracing::trace!(%packet_size, %message_size, message_buf=?message, "Message encoded");
-        }
+            framed_write
+                .send_all(&mut stream::iter(items.into_iter().map(Ok)))
+                .await
+                .unwrap();
 
-        Ok(())
+            framed_write.close().await.unwrap();
+        });
+
+        let codec = Codec::<TestMessage>::new();
+        let framed_read = FramedRead::new(read, codec);
+
+        let collected_items: Vec<_> = framed_read
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+
+        handle.await.unwrap();
+
+        let items = test_messages();
+
+        // Assertion to compare sent and received items
+        assert_eq!(collected_items, items);
     }
 }
