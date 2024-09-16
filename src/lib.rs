@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![deny(unsafe_code)]
 
 pub mod codec;
 pub use codec::Codec;
