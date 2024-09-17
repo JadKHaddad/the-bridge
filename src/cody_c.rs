@@ -25,7 +25,6 @@ where
             bincode::encode_into_slice(item, &mut dst[4..], bincode::config::standard())
                 .map_err(EncodeError::Encode)?;
 
-        // TODO: make this a feature or a configuration option
         if message_size > u32::MAX as usize {
             return Err(EncodeError::MessageTooBig);
         }
