@@ -1,65 +1,43 @@
 [package]
 name = "the-bridge"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 authors = ["Jad K. Haddad <jadkhaddad@gmail.com>"]
 license = "MIT OR Apache-2.0"
 description = "A Simple and Efficient Binary Protocol Bridge for std and no_std Environments"
 repository = "https://github.com/JadKHaddad/the-bridge"
 readme = "README.md"
-keywords = ["protocol", "async", "no_std"]
+keywords = ["protocol", "async", "no_std", "embedded"]
 
 [features]
-default = ["std", "tracing", "tokio", "embedded-io", "futures", "demo"]
-std = [] # Implements std::error::Error for EncodeError and DecodeError
-embedded-io = [
-    "dep:embedded-io-async",
-] # Enables embedded-io-async::Read and embedded-io-async::Write compatibility
-futures = [
-    "dep:futures",
-] # Enables futures::Stream and futures::Sink compatibility
-futures-io = [
-    "futures/std",
-] # Enables futures::io::AsyncRead and futures::io::AsyncWrite compatibility and brings futures::io::Error into scope
-tokio = [
-    "dep:tokio",
-    "dep:tokio-util",
-    "futures-io",
-    "bincode/std",
-] # Enables tokio::AsyncRead and tokio::AsyncWrite compatibility and implements tokio-util::codec::Framed 
-tracing = ["dep:tracing"] # Enables tracing
-log = ["dep:log"] # Enables log
-defmt = [
-    "dep:defmt",
-] # Enables defmt and implements defmt::Format for EncodeError and DecodeError
-demo = [
-] # Enables the demo module with a ready-to-use DemoMessage that can be used to test the bridge
+default = ["cody-c"]
+std = []
+tokio = ["std", "dep:tokio-util", "bincode/std"]
+cody-c = ["dep:cody-c"]
+demo = []
 
 [dependencies]
 bincode = { version = "2.0.0-rc.3", default-features = false, features = [
     "derive",
 ] }
-futures = { version = "0.3.3", default-features = false, optional = true }
-embedded-io-async = { version = "0.6.1", optional = true }
-tokio = { version = "1.37.0", optional = true, default-features = false, features = [
-    "io-util",
-] }
-tokio-util = { version = "0.7.11", optional = true, default-features = false, features = [
+cody-c = { version = "0.1.0", optional = true, default-features = false }
+tokio-util = { version = "0.7.12", optional = true, default-features = false, features = [
     "codec",
 ] }
-tracing = { version = "0.1.40", optional = true }
-log = { version = "0.4.20", optional = true }
-defmt = { version = "0.3.6", optional = true }
 
 [dev-dependencies]
+bincode = { version = "2.0.0-rc.3", default-features = false, features = [
+    "derive",
+    "std",
+] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.11", features = ["codec"] }
-tokio-test = "0.4.4"
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+cody-c = { version = "0.1.0", default-features = false, features = ["tokio"] }
 futures = "0.3.3"
+tracing = { version = "0.1.40", default-features = false }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 [[example]]
 name = "server"
 path = "examples/server.rs"
-required-features = ["tracing", "tokio", "demo"]
+required-features = ["tokio", "demo"]

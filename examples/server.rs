@@ -1,9 +1,13 @@
-use futures::SinkExt;
-use futures::StreamExt;
-use the_bridge::{
-    decode::framed_read::FramedRead, demo::DemoMessage, encode::framed_write::FramedWrite,
-    tokio::Compat,
-};
+//! Server example
+//!
+//! ```not_rust
+//! cargo run --example server --features="tokio,demo"
+//! ```
+//!
+
+use futures::{SinkExt, StreamExt};
+use the_bridge::{demo::DemoMessage, Codec};
+use tokio_util::codec::{FramedRead, FramedWrite};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,23 +31,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::debug!("Connected");
 
         tokio::spawn(async move {
-            // You can use TokioCodec instead of the FramedRead and FramedWrite
-
             let (reader, writer) = socket.into_split();
 
-            let read_buf: &mut [u8] = &mut [0; 100];
-            let write_buf: &mut [u8] = &mut [0; 100];
-
-            let mut reader: FramedRead<'_, _, DemoMessage> =
-                FramedRead::new(Compat::new(reader), read_buf);
-            let stream = reader.stream();
-            futures::pin_mut!(stream);
-
-            let mut writer: FramedWrite<'_, _, DemoMessage> =
-                FramedWrite::new(Compat::new(writer), write_buf);
-
-            let sink = writer.sink();
-            futures::pin_mut!(sink);
+            let mut stream = FramedRead::new(reader, Codec::<DemoMessage>::new());
+            let mut sink = FramedWrite::new(writer, Codec::<DemoMessage>::new());
 
             let mut ping_count = 0;
             loop {
