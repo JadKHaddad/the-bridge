@@ -10,7 +10,7 @@ readme = "README.md"
 keywords = ["protocol", "async", "no_std", "embedded"]
 
 [features]
-default = ["cody-c"]
+default = ["cody-c", "tokio"]
 std = []
 tokio = ["std", "dep:tokio-util", "bincode/std"]
 cody-c = ["dep:cody-c"]

@@ -1,5 +1,6 @@
 use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, bincode::Encode, bincode::Decode, PartialEq)]
 pub enum TestMessage {
@@ -79,13 +80,15 @@ pub fn test_messages() -> Vec<TestMessage> {
 }
 
 mod cody_c {
+    use std::sync::Arc;
+
     use cody_c::{decode::framed_read::FramedRead, tokio::Compat, FramedWrite};
     use futures::{SinkExt, StreamExt};
     use the_bridge::Codec;
 
     use crate::TestMessage;
 
-    pub fn bench<const BUF_SIZE: usize>(items: Vec<TestMessage>, duplex_size: usize) {
+    pub fn bench<const BUF_SIZE: usize>(items: Arc<Vec<TestMessage>>, duplex_size: usize) {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -100,8 +103,8 @@ mod cody_c {
                     let codec = the_bridge::codec::Codec::<TestMessage>::new();
                     let mut framed_write = FramedWrite::new(Compat::new(write), codec, write_buf);
 
-                    for item in items_clone {
-                        framed_write.send(item).await.unwrap();
+                    for item in items_clone.iter() {
+                        framed_write.send(item.clone()).await.unwrap();
                     }
 
                     framed_write.close().await.unwrap();
@@ -120,19 +123,21 @@ mod cody_c {
 
                 handle.await.unwrap();
 
-                assert_eq!(collected_items, items);
+                assert_eq!(collected_items, *items);
             })
     }
 }
 
 mod tokio_codec {
+    use std::sync::Arc;
+
     use futures::{SinkExt, StreamExt};
     use the_bridge::Codec;
     use tokio_util::codec::{FramedRead, FramedWrite};
 
     use crate::TestMessage;
 
-    pub fn bench(items: Vec<TestMessage>, duplex_size: usize) {
+    pub fn bench(items: Arc<Vec<TestMessage>>, duplex_size: usize) {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -146,8 +151,8 @@ mod tokio_codec {
                     let codec = Codec::<TestMessage>::new();
                     let mut framed_write = FramedWrite::new(write, codec);
 
-                    for item in items_clone {
-                        framed_write.send(item).await.unwrap();
+                    for item in items_clone.iter() {
+                        framed_write.send(item.clone()).await.unwrap();
                     }
 
                     framed_write.close().await.unwrap();
@@ -165,7 +170,7 @@ mod tokio_codec {
 
                 handle.await.unwrap();
 
-                assert_eq!(collected_items, items);
+                assert_eq!(collected_items, *items);
             })
     }
 }
@@ -173,11 +178,11 @@ mod tokio_codec {
 fn criterion_benchmark(c: &mut Criterion) {
     let duplex_size: usize = 1024;
 
-    let test_messages = (0..10).fold(Vec::new(), |mut acc, _| {
+    let test_messages = Arc::new((0..100000).fold(Vec::new(), |mut acc, _| {
         acc.extend(test_messages());
 
         acc
-    });
+    }));
 
     c.bench_function("cody_c_buf_32", |b| {
         b.iter(|| cody_c::bench::<32>(black_box(test_messages.clone()), black_box(duplex_size)))
