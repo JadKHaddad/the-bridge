@@ -36,8 +36,15 @@ cody-c = { version = "0.1.0", default-features = false, features = ["tokio"] }
 futures = "0.3.3"
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [[example]]
 name = "server"
 path = "examples/server.rs"
 required-features = ["tokio", "demo"]
+
+[[bench]]
+name = "sink_stream"
+harness = false
+required-features = ["cody-c", "tokio"]
+# cargo bench --features "cody-c,tokio"
