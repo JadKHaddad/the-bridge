@@ -22,7 +22,7 @@ use esp_wifi::{
     },
     EspWifiInitFor,
 };
-use futures::{SinkExt, StreamExt};
+use futures::{pin_mut, SinkExt, StreamExt};
 use the_bridge::demo::DemoMessage;
 use the_bridge::Codec;
 
@@ -124,17 +124,21 @@ async fn main(spawner: Spawner) -> ! {
         let read_buf: &mut [u8] = &mut [0; 128];
         let write_buf: &mut [u8] = &mut [0; 128];
 
-        let mut framed_read = FramedRead::new(
+        let framed_read = FramedRead::new(
             Compat::new(tcp_reader),
             Codec::<DemoMessage>::new(),
             read_buf,
-        );
-        let mut framed_write = FramedWrite::new(
+        )
+        .into_stream();
+
+        let framed_write = FramedWrite::new(
             Compat::new(tcp_writer),
             Codec::<DemoMessage>::new(),
             write_buf,
-        );
+        )
+        .into_sink();
 
+        pin_mut!(framed_read, framed_write);
         loop {
             let time_fut = Timer::after(Duration::from_millis(3_000));
             let read_fut = framed_read.next();

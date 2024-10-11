@@ -80,7 +80,7 @@ mod test {
     use std::vec::Vec;
 
     use cody_c::{tokio::Compat, FramedRead, FramedWrite};
-    use futures::{SinkExt, StreamExt};
+    use futures::{pin_mut, SinkExt, StreamExt};
 
     use crate::{
         codec::Codec,
@@ -96,7 +96,8 @@ mod test {
         let handle = tokio::spawn(async move {
             let write_buf = &mut [0_u8; 128];
             let codec = Codec::<TestMessage>::new();
-            let mut framed_write = FramedWrite::new(Compat::new(write), codec, write_buf);
+            let framed_write = FramedWrite::new(Compat::new(write), codec, write_buf).into_sink();
+            pin_mut!(framed_write);
 
             for item in items {
                 framed_write.send(item).await.unwrap();
@@ -107,7 +108,7 @@ mod test {
 
         let read_buf = &mut [0_u8; 128];
         let codec = Codec::<TestMessage>::new();
-        let framed_read = FramedRead::new(Compat::new(read), codec, read_buf);
+        let framed_read = FramedRead::new(Compat::new(read), codec, read_buf).into_stream();
 
         let collected_items: Vec<_> = framed_read
             .collect::<Vec<_>>()

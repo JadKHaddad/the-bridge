@@ -81,7 +81,7 @@ pub fn test_messages() -> Vec<TestMessage> {
 #[cfg(all(feature = "tokio", feature = "cody-c"))]
 mod comp {
     use cody_c::{tokio::Compat, FramedRead as CodyFramedRead, FramedWrite as CodyFramedWrite};
-    use futures::{stream, SinkExt, StreamExt};
+    use futures::{pin_mut, stream, SinkExt, StreamExt};
     use tokio_util::codec::{FramedRead as TokioFramedRead, FramedWrite as TokioFramedWrite};
 
     use super::*;
@@ -96,7 +96,9 @@ mod comp {
         let handle = tokio::spawn(async move {
             let write_buf = &mut [0_u8; 128];
             let codec = Codec::<TestMessage>::new();
-            let mut framed_write = CodyFramedWrite::new(Compat::new(write), codec, write_buf);
+            let framed_write =
+                CodyFramedWrite::new(Compat::new(write), codec, write_buf).into_sink();
+            pin_mut!(framed_write);
 
             for item in items {
                 framed_write.send(item).await.unwrap();
@@ -142,7 +144,7 @@ mod comp {
 
         let read_buf = &mut [0_u8; 128];
         let codec = Codec::<TestMessage>::new();
-        let framed_read = CodyFramedRead::new(Compat::new(read), codec, read_buf);
+        let framed_read = CodyFramedRead::new(Compat::new(read), codec, read_buf).into_stream();
 
         let collected_items: Vec<_> = framed_read
             .collect::<Vec<_>>()

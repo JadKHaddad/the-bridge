@@ -52,10 +52,10 @@ the-bridge = { path = "../../", default-features = false, features = [
     "cody-c",
     "demo",
 ] }
-cody-c = { version = "0.1.0", default-features = false, features = [
+cody-c = { version = "0.2.0", default-features = false, features = [
     "embedded-io-async",
 ] }
-futures = { version = "0.3.0", default-features = false }
+futures = { version = "0.3.31", default-features = false }
 
 [profile.dev]
 # Rust debug is too slow.

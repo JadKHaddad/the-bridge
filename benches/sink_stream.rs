@@ -83,7 +83,7 @@ mod cody_c {
     use std::sync::Arc;
 
     use cody_c::{decode::framed_read::FramedRead, tokio::Compat, FramedWrite};
-    use futures::{SinkExt, StreamExt};
+    use futures::{pin_mut, SinkExt, StreamExt};
     use the_bridge::Codec;
 
     use crate::TestMessage;
@@ -101,7 +101,9 @@ mod cody_c {
                 let handle = tokio::spawn(async move {
                     let write_buf = &mut [0_u8; BUF_SIZE];
                     let codec = the_bridge::codec::Codec::<TestMessage>::new();
-                    let mut framed_write = FramedWrite::new(Compat::new(write), codec, write_buf);
+                    let framed_write =
+                        FramedWrite::new(Compat::new(write), codec, write_buf).into_sink();
+                    pin_mut!(framed_write);
 
                     for item in items_clone.iter() {
                         framed_write.send(item.clone()).await.unwrap();
@@ -112,7 +114,7 @@ mod cody_c {
 
                 let read_buf = &mut [0u8; BUF_SIZE];
                 let codec = Codec::<TestMessage>::new();
-                let framed_read = FramedRead::new(Compat::new(read), codec, read_buf);
+                let framed_read = FramedRead::new(Compat::new(read), codec, read_buf).into_stream();
 
                 let collected_items: Vec<_> = framed_read
                     .collect::<Vec<_>>()
