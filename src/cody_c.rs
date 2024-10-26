@@ -1,4 +1,4 @@
-use cody_c::{Decoder, Encoder, Frame, FrameSize, MaybeDecoded};
+use cody_c::{DecoderOwned, Encoder};
 
 use crate::codec::Codec;
 
@@ -43,7 +43,7 @@ pub enum DecodeError {
     Decode(bincode::error::DecodeError),
 }
 
-impl<M> Decoder for Codec<M>
+impl<M> DecoderOwned for Codec<M>
 where
     M: bincode::Decode,
 {
@@ -51,15 +51,15 @@ where
 
     type Error = DecodeError;
 
-    fn decode(&mut self, src: &mut [u8]) -> Result<MaybeDecoded<Self::Item>, Self::Error> {
+    fn decode_owned(&mut self, src: &mut [u8]) -> Result<Option<(Self::Item, usize)>, Self::Error> {
         if src.len() < 4 {
-            return Ok(MaybeDecoded::None(FrameSize::Unknown));
+            return Ok(None);
         }
 
         let frame_size = u32::from_be_bytes([src[0], src[1], src[2], src[3]]) as usize;
 
         if src.len() < frame_size {
-            return Ok(MaybeDecoded::None(FrameSize::Known(frame_size)));
+            return Ok(None);
         }
 
         if frame_size < 4 {
@@ -70,7 +70,7 @@ where
             bincode::decode_from_slice(&src[4..frame_size], bincode::config::standard())
                 .map_err(DecodeError::Decode)?;
 
-        Ok(MaybeDecoded::Frame(Frame::new(frame_size, item)))
+        Ok(Some((item, frame_size)))
     }
 }
 
@@ -94,9 +94,11 @@ mod test {
         let (read, write) = tokio::io::duplex(16);
 
         let handle = tokio::spawn(async move {
-            let write_buf = &mut [0_u8; 128];
             let codec = Codec::<TestMessage>::new();
-            let framed_write = FramedWrite::new(Compat::new(write), codec, write_buf).into_sink();
+            let mut framed_write =
+                FramedWrite::new_with_buffer(codec, Compat::new(write), [0_u8; 128]);
+            let framed_write = framed_write.sink();
+
             pin_mut!(framed_write);
 
             for item in items {
@@ -106,9 +108,9 @@ mod test {
             framed_write.close().await.unwrap();
         });
 
-        let read_buf = &mut [0_u8; 128];
         let codec = Codec::<TestMessage>::new();
-        let framed_read = FramedRead::new(Compat::new(read), codec, read_buf).into_stream();
+        let mut framed_read = FramedRead::new_with_buffer(codec, Compat::new(read), [0_u8; 128]);
+        let framed_read = framed_read.stream();
 
         let collected_items: Vec<_> = framed_read
             .collect::<Vec<_>>()

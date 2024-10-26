@@ -94,10 +94,11 @@ mod comp {
         let (read, write) = tokio::io::duplex(16);
 
         let handle = tokio::spawn(async move {
-            let write_buf = &mut [0_u8; 128];
             let codec = Codec::<TestMessage>::new();
-            let framed_write =
-                CodyFramedWrite::new(Compat::new(write), codec, write_buf).into_sink();
+            let mut framed_write =
+                CodyFramedWrite::new_with_buffer(codec, Compat::new(write), [0_u8; 128]);
+            let framed_write = framed_write.sink();
+
             pin_mut!(framed_write);
 
             for item in items {
@@ -142,9 +143,10 @@ mod comp {
             framed_write.close().await.unwrap();
         });
 
-        let read_buf = &mut [0_u8; 128];
         let codec = Codec::<TestMessage>::new();
-        let framed_read = CodyFramedRead::new(Compat::new(read), codec, read_buf).into_stream();
+        let mut framed_read =
+            CodyFramedRead::new_with_buffer(codec, Compat::new(read), [0_u8; 128]);
+        let framed_read = framed_read.stream();
 
         let collected_items: Vec<_> = framed_read
             .collect::<Vec<_>>()
